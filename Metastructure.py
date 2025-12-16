@@ -17,6 +17,7 @@ class MetaStructure:
         
         # Предопределенные типы структур
         self.STRUCTURE_TYPES = {
+            "cubic": "Кубическая структура с кольцами на гранях кубов"
         }
         
     def get_structure_info(self):
@@ -42,7 +43,25 @@ class MetaStructure:
                 "gap_width": 0.001,
                 "strip_width": 0.0005,
                 "lattice_constant": 0.01,
-            }
+            },
+             "cubic": { 
+                "ring_radius": 0.003,        # Радиус кольца (м)
+                "strip_width": 0.0005,       # Ширина полоски (м)
+                "capacitance": 470e-12,      # Емкость (Ф)
+                "resistance": 1.0,           # Сопротивление (Ом)
+                "inductance": 1e-9,          # Индуктивность (Гн)
+                "cube_size": 1.0,            # Размер куба в условных единицах
+                "unit_size": 0.01,           # Размер одной условной единицы (м)
+                "num_cubes_x": 1,            # Количество кубов по оси X
+                "num_cubes_y": 1,            # Количество кубов по оси Y 
+                "num_cubes_z": 1,            # Количество кубов по оси Z
+                "frequency": 1e6,            # Частота (Гц)
+                "rings_on_edges": True,      # Кольца на ребрах
+                "rings_on_faces": True,      # Кольца на гранях
+                "rings_on_corners": True     # Кольца в углах (пересечениях граней)
+            } 
+
+            
         }
         return self.defaults.get(self.structure_type, {})
         
