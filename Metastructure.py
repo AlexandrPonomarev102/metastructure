@@ -1,77 +1,340 @@
-class MetaStructure:
+import numpy as np
+from abc import ABC, abstractmethod
+
+class MetaStructure(ABC):
     """
-    Тип метаструктуры
-    Определяет общие свойства и поведение типа материала
+    Абстрактный класс типа метаструктуры.
+    Только расчетные функции, без хранения данных.
     """
     
-    def __init__(self, structure_type, description="", typical_params=None):
-        """
-        Args:
-            structure_type: тип структуры 
-            description: описание структуры
-            typical_params: типичные параметры для этого типа
-        """
-        self.structure_type = structure_type
-        self.description = description
-        self.typical_params = typical_params if typical_params else {}
-        
-        # Предопределенные типы структур
-        self.STRUCTURE_TYPES = {
-            "cubic": "Кубическая структура с кольцами на гранях кубов"
-        }
-        
-    def get_structure_info(self):
-        """Получить информацию о типе структуры"""
-        info = f"Structure type: {self.structure_type}\n"
-        info += f"Description: {self.description}\n"
-        info += "Typical parameters:\n"
-        for key, value in self.typical_params.items():
-            info += f"  {key}: {value}\n"
-        return info
-        #TODO: Добавить атрибутом метаматериал 
-    def create_default_params(self):     
-        """Создать параметры по умолчанию для этого типа структуры"""
-        self.defaults = {         #TODO поменять со словаря в атрибуты 
-            "CLR": {
-                "ring_radius": 0.0049,  # м
-                "strip_width": 0.0022,  # м
-                "capacitance": 470e-12,  # Ф
-                "lattice_constant": 0.015,  # м
-            },
-            "SRR": {
-                "ring_radius": 0.005,
-                "gap_width": 0.001,
-                "strip_width": 0.0005,
-                "lattice_constant": 0.01,
-            },
-             "cubic": { 
-                "ring_radius": 0.003,        # Радиус кольца (м)
-                "strip_width": 0.0005,       # Ширина полоски (м)
-                "capacitance": 470e-12,      # Емкость (Ф)
-                "resistance": 1.0,           # Сопротивление (Ом)
-                "inductance": 1e-9,          # Индуктивность (Гн)
-                "cube_size": 1.0,            # Размер куба в условных единицах
-                "unit_size": 0.01,           # Размер одной условной единицы (м)
-                "num_cubes_x": 1,            # Количество кубов по оси X
-                "num_cubes_y": 1,            # Количество кубов по оси Y 
-                "num_cubes_z": 1,            # Количество кубов по оси Z
-                "frequency": 1e6,            # Частота (Гц)
-                "rings_on_edges": True,      # Кольца на ребрах
-                "rings_on_faces": True,      # Кольца на гранях
-                "rings_on_corners": True     # Кольца в углах (пересечениях граней)
-            } 
+    @abstractmethod
+    def get_default_parameters(self):
+        """Получить параметры по умолчанию"""
+        pass
+    
+    @abstractmethod
+    def validate_parameters(self, **kwargs):
+        """Проверка корректности параметров"""
+        pass
+    
+    @abstractmethod
+    def calculate_geometry(self, **kwargs):
+        """Расчет геометрии структуры"""
+        pass
+    
+    @abstractmethod
+    def calculate_ring_configurations(self, **kwargs):
+        """Расчет конфигураций колец"""
+        pass
 
-            
+
+class CubicStructure(MetaStructure):
+    """Кубическая периодическая структура"""
+    
+    def get_default_parameters(self):
+        """Возвращает параметры по умолчанию"""
+        return {
+            "ring_radius": 0.003,
+            "strip_width": 0.0005,
+            "capacitance": 470e-12,
+            "resistance": 1.0,
+            "inductance": 1e-9,
+            "cube_size": 1.0,
+            "unit_size": 0.01,
+            "grid_x": 3,
+            "grid_y": 3,
+            "grid_z": 3,
+            "rings_on_edges": True,
+            "rings_on_faces": True,
+            "rings_on_corners": True,
+            "frequency": 1e6,
         }
-        return self.defaults.get(self.structure_type, {})
+    
+    def validate_parameters(self, **kwargs):
+        """Проверка корректности параметров"""
+        params = self.get_default_parameters()
+        params.update(kwargs)
         
-    def validate_params(self, params):
-        """Проверить корректность параметров для этого типа структуры"""
-        required = self.get_required_params()
-        for param in required:
-            if param not in params:
-                raise ValueError(f"Отсутствует обязательный параметр: {param}")
+        if params["grid_x"] <= 0 or params["grid_y"] <= 0 or params["grid_z"] <= 0:
+            raise ValueError("Размеры решетки должны быть положительными")
+        
+        if params["cube_size"] <= 0 or params["unit_size"] <= 0:
+            raise ValueError("Размеры должны быть положительными")
+        
         return True
+    
+    def calculate_geometry(self, **kwargs):
+        """Расчет геометрии кубической структуры"""
+        self.validate_parameters(**kwargs)
         
-    def __repr__(self):
-        return f"MetaStructure(type={self.structure_type})"
+        params = self.get_default_parameters()
+        params.update(kwargs)
+        
+        cube_size = params["cube_size"]
+        unit_size = params["unit_size"]
+        grid_x = params["grid_x"]
+        grid_y = params["grid_y"]
+        grid_z = params["grid_z"]
+        
+        # Генерация вершин
+        vertices = []
+        for x in range(grid_x + 1):
+            for y in range(grid_y + 1):
+                for z in range(grid_z + 1):
+                    vertex = np.array([
+                        x * cube_size * unit_size,
+                        y * cube_size * unit_size,
+                        z * cube_size * unit_size
+                    ])
+                    vertices.append(vertex)
+        
+        vertices = np.array(vertices)
+        
+        # Генерация ребер
+        edges = []
+        for x in range(grid_x):
+            for y in range(grid_y):
+                for z in range(grid_z):
+                    base_idx = x * (grid_y + 1) * (grid_z + 1) + y * (grid_z + 1) + z
+                    v_indices = [
+                        base_idx,
+                        base_idx + 1,
+                        base_idx + (grid_z + 1),
+                        base_idx + (grid_z + 1) + 1,
+                        base_idx + (grid_y + 1) * (grid_z + 1),
+                        base_idx + (grid_y + 1) * (grid_z + 1) + 1,
+                        base_idx + (grid_y + 1) * (grid_z + 1) + (grid_z + 1),
+                        base_idx + (grid_y + 1) * (grid_z + 1) + (grid_z + 1) + 1
+                    ]
+                    
+                    # 12 ребер куба
+                    cube_edges = [
+                        (v_indices[0], v_indices[1]), (v_indices[0], v_indices[2]),
+                        (v_indices[1], v_indices[3]), (v_indices[2], v_indices[3]),
+                        (v_indices[4], v_indices[5]), (v_indices[4], v_indices[6]),
+                        (v_indices[5], v_indices[7]), (v_indices[6], v_indices[7]),
+                        (v_indices[0], v_indices[4]), (v_indices[1], v_indices[5]),
+                        (v_indices[2], v_indices[6]), (v_indices[3], v_indices[7])
+                    ]
+                    edges.extend(cube_edges)
+        
+        # Генерация граней
+        faces = []
+        for x in range(grid_x):
+            for y in range(grid_y):
+                for z in range(grid_z):
+                    base_idx = x * (grid_y + 1) * (grid_z + 1) + y * (grid_z + 1) + z
+                    v_indices = [
+                        base_idx,
+                        base_idx + 1,
+                        base_idx + (grid_z + 1),
+                        base_idx + (grid_z + 1) + 1,
+                        base_idx + (grid_y + 1) * (grid_z + 1),
+                        base_idx + (grid_y + 1) * (grid_z + 1) + 1,
+                        base_idx + (grid_y + 1) * (grid_z + 1) + (grid_z + 1),
+                        base_idx + (grid_y + 1) * (grid_z + 1) + (grid_z + 1) + 1
+                    ]
+                    
+                    # 6 граней куба
+                    cube_faces = [
+                        (v_indices[0], v_indices[1], v_indices[3], v_indices[2]),
+                        (v_indices[4], v_indices[5], v_indices[7], v_indices[6]),
+                        (v_indices[0], v_indices[1], v_indices[5], v_indices[4]),
+                        (v_indices[2], v_indices[3], v_indices[7], v_indices[6]),
+                        (v_indices[0], v_indices[2], v_indices[6], v_indices[4]),
+                        (v_indices[1], v_indices[3], v_indices[7], v_indices[5])
+                    ]
+                    faces.extend(cube_faces)
+        
+        return vertices, edges, faces
+    
+    def calculate_ring_configurations(self, **kwargs):
+        """Расчет конфигураций колец для кубической структуры"""
+        self.validate_parameters(**kwargs)
+        
+        params = self.get_default_parameters()
+        params.update(kwargs)
+        
+        cube_size = params["cube_size"]
+        unit_size = params["unit_size"]
+        grid_x = params["grid_x"]
+        grid_y = params["grid_y"]
+        grid_z = params["grid_z"]
+        
+        ring_radius = params["ring_radius"]
+        strip_width = params["strip_width"]
+        capacitance = params["capacitance"]
+        resistance = params["resistance"]
+        inductance = params["inductance"]
+        frequency = params["frequency"]
+        omega = 2 * np.pi * frequency
+        
+        rings_on_faces = params["rings_on_faces"]
+        rings_on_edges = params["rings_on_edges"]
+        rings_on_corners = params["rings_on_corners"]
+        
+        positions = []
+        orientations = []
+        ring_params_list = []
+        
+        # Кольца на гранях (все 3 плоскости)
+        if rings_on_faces:
+            # 1. Кольца на гранях, перпендикулярных оси X (плоскость YZ)
+            for x in range(grid_x + 1):
+                for y in range(grid_y):
+                    for z in range(grid_z):
+                        center = np.array([
+                            x * cube_size * unit_size,
+                            (y + 0.5) * cube_size * unit_size,
+                            (z + 0.5) * cube_size * unit_size
+                        ])
+                        # Нормаль к грани (направлена вдоль оси X)
+                        orientation = np.array([1, 0, 0]) if x < grid_x else np.array([-1, 0, 0])
+                        positions.append(center)
+                        orientations.append(orientation)
+                        ring_params_list.append({
+                            "R": resistance,
+                            "L": inductance,
+                            "C": capacitance,
+                            "omega": omega,
+                            "radius": ring_radius,
+                            "strip_width": strip_width
+                        })
+            
+            # 2. Кольца на гранях, перпендикулярных оси Y (плоскость XZ)
+            for x in range(grid_x):
+                for y in range(grid_y + 1):
+                    for z in range(grid_z):
+                        center = np.array([
+                            (x + 0.5) * cube_size * unit_size,
+                            y * cube_size * unit_size,
+                            (z + 0.5) * cube_size * unit_size
+                        ])
+                        # Нормаль к грани (направлена вдоль оси Y)
+                        orientation = np.array([0, 1, 0]) if y < grid_y else np.array([0, -1, 0])
+                        positions.append(center)
+                        orientations.append(orientation)
+                        ring_params_list.append({
+                            "R": resistance,
+                            "L": inductance,
+                            "C": capacitance,
+                            "omega": omega,
+                            "radius": ring_radius,
+                            "strip_width": strip_width
+                        })
+            
+            # 3. Кольца на гранях, перпендикулярных оси Z (плоскость XY)
+            for x in range(grid_x):
+                for y in range(grid_y):
+                    for z in range(grid_z + 1):
+                        center = np.array([
+                            (x + 0.5) * cube_size * unit_size,
+                            (y + 0.5) * cube_size * unit_size,
+                            z * cube_size * unit_size
+                        ])
+                        # Нормаль к грани (направлена вдоль оси Z)
+                        orientation = np.array([0, 0, 1]) if z < grid_z else np.array([0, 0, -1])
+                        positions.append(center)
+                        orientations.append(orientation)
+                        ring_params_list.append({
+                            "R": resistance,
+                            "L": inductance,
+                            "C": capacitance,
+                            "omega": omega,
+                            "radius": ring_radius,
+                            "strip_width": strip_width
+                        })
+        
+        # Кольца на ребрах (все 3 направления)
+        if rings_on_edges:
+            # 1. Ребра параллельные оси X
+            for x in range(grid_x):
+                for y in range(grid_y + 1):
+                    for z in range(grid_z + 1):
+                        center = np.array([
+                            (x + 0.5) * cube_size * unit_size,
+                            y * cube_size * unit_size,
+                            z * cube_size * unit_size
+                        ])
+                        # Ориентация вдоль оси X
+                        orientation = np.array([1, 0, 0])
+                        positions.append(center)
+                        orientations.append(orientation)
+                        ring_params_list.append({
+                            "R": resistance,
+                            "L": inductance,
+                            "C": capacitance,
+                            "omega": omega,
+                            "radius": ring_radius,
+                            "strip_width": strip_width
+                        })
+            
+            # 2. Ребра параллельные оси Y
+            for x in range(grid_x + 1):
+                for y in range(grid_y):
+                    for z in range(grid_z + 1):
+                        center = np.array([
+                            x * cube_size * unit_size,
+                            (y + 0.5) * cube_size * unit_size,
+                            z * cube_size * unit_size
+                        ])
+                        # Ориентация вдоль оси Y
+                        orientation = np.array([0, 1, 0])
+                        positions.append(center)
+                        orientations.append(orientation)
+                        ring_params_list.append({
+                            "R": resistance,
+                            "L": inductance,
+                            "C": capacitance,
+                            "omega": omega,
+                            "radius": ring_radius,
+                            "strip_width": strip_width
+                        })
+            
+            # 3. Ребра параллельные оси Z
+            for x in range(grid_x + 1):
+                for y in range(grid_y + 1):
+                    for z in range(grid_z):
+                        center = np.array([
+                            x * cube_size * unit_size,
+                            y * cube_size * unit_size,
+                            (z + 0.5) * cube_size * unit_size
+                        ])
+                        # Ориентация вдоль оси Z
+                        orientation = np.array([0, 0, 1])
+                        positions.append(center)
+                        orientations.append(orientation)
+                        ring_params_list.append({
+                            "R": resistance,
+                            "L": inductance,
+                            "C": capacitance,
+                            "omega": omega,
+                            "radius": ring_radius,
+                            "strip_width": strip_width
+                        })
+        
+        # Кольца в углах (пересечениях трех граней)
+        if rings_on_corners:
+            for x in range(grid_x + 1):
+                for y in range(grid_y + 1):
+                    for z in range(grid_z + 1):
+                        center = np.array([
+                            x * cube_size * unit_size,
+                            y * cube_size * unit_size,
+                            z * cube_size * unit_size
+                        ])
+                        # Ориентация по диагонали (нормализованная сумма направлений)
+                        orientation = np.array([1, 1, 1])
+                        orientation = orientation / np.linalg.norm(orientation)
+                        positions.append(center)
+                        orientations.append(orientation)
+                        ring_params_list.append({
+                            "R": resistance,
+                            "L": inductance,
+                            "C": capacitance,
+                            "omega": omega,
+                            "radius": ring_radius,
+                            "strip_width": strip_width
+                        })
+        
+        return np.array(positions), np.array(orientations), ring_params_list
