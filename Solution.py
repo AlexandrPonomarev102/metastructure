@@ -1,6 +1,9 @@
 import numpy as np
 
 class Solution:
+    """
+    Сохранялка данных
+    """
     def __init__(self, currents, frequencies=None, parameters=None):
         self.currents = currents
         self.frequencies = frequencies
