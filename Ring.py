@@ -3,15 +3,29 @@ from Solver import MutualInductanceCalculator
 from Solver import ImpedanceMatrixBuilder
 from Solver import ExternalFluxCalculator
 class Ring:
-    def __init__(self, position, orientation, R, L, C, omega):
-        self.position = position
-        self.orientation = orientation
+    def __init__(self, position, orientation, R, L, C, omega, radius=0.003, strip_width=0.0005):
+        """
+        Args:
+            position: позиция кольца [x, y, z]
+            orientation: ориентация (нормаль) кольца
+            R: сопротивление (Ом)
+            L: индуктивность (Гн)
+            C: емкость (Ф)
+            omega: угловая частота (рад/с)
+            radius: радиус кольца (м)
+            strip_width: ширина полоски (м)
+        """
+        self.position = np.array(position)
+        self.orientation = np.array(orientation) / np.linalg.norm(orientation)
         self.R = R
         self.L = L
         self.C = C
         self.omega = omega
-        
-    def build_impedance_matrix(self, ring_system):
+        self.radius = radius
+        self.strip_width = strip_width
+        self.area = np.pi * radius ** 2
+    
+    def build_impedance_matrix(self, ring_system): #TODO сделать норм тело (теплес) 
         positions = ring_system.get_positions()
         orientations = ring_system.get_orientations()
         N = len(positions)
@@ -36,4 +50,8 @@ class Ring:
         
         flux_calc = ExternalFluxCalculator(positions, orientations)
         Phi_ext = flux_calc.compute_external_flux(B_field_external)
-        return -1j * self.omega * Phi_ext
+        return -1j * self.omega * Phi_ext   
+
+    def __repr__(self):
+        return f"Ring(pos={self.position.round(4)}, R={self.R}, L={self.L}, C={self.C})"
+
